@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>HexaHealth Hospital Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=16">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+</head>
+<body>
+<div class="layout">
+
+<!-- SIDEBAR: 3 items only -->
+<aside class="sidebar">
+  <div class="sb-logo">
+    <div class="sb-logo-row">
+      <div class="sb-logo-icon">⚡</div>
+      <div class="sb-logo-name">Hexa<span>Health</span></div>
+    </div>
+    <div class="sb-logo-sub">SURGERY SIMPLIFIED</div>
+  </div>
+  <nav class="sb-nav">
+    <div class="sb-section">Dashboards</div>
+    <div class="sb-item active" id="nav-page1" onclick="showPage('page1')"><span class="sb-icon">🏥</span> Hospital Network</div>
+    <div class="sb-item" id="nav-page2" onclick="showPage('page2')"><span class="sb-icon">📊</span> ASP Analytics</div>
+    <div class="sb-item" id="nav-page3" onclick="showPage('page3')"><span class="sb-icon">🗺️</span> Coverage Map</div>
+  </nav>
+  <div class="sb-footer">
+    <div class="sb-live">
+      <div class="sb-live-dot"></div>
+      <div class="sb-live-text"><strong id="live-title">Google Sheets</strong><span id="live-sub">Loading…</span></div>
+    </div>
+  </div>
+</aside>
+
+<div class="main">
+<div class="topbar">
+  <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('mobile-open')" aria-label="Menu">☰</button>
+  <span class="topbar-title" id="topbar-title">Hospital Network</span>
+  <div class="topbar-right">
+    <button class="refresh-btn" id="refresh-btn" title="Force refresh from Google Sheets" aria-label="Refresh">
+      <span class="refresh-icon" id="refresh-icon">↻</span>
+    </button>
+    <span class="last-updated" id="last-refreshed">Loading…</span>
+  </div>
+</div>
+
+<!-- PAGE 1: Hospital Network + Smart Finder toggle -->
+<div class="page-content active" id="page1">
+
+  <!-- Tab toggle: Table View / Smart Finder -->
+  <div class="view-toggle">
+    <button class="vtab active" id="vtab-table" onclick="PAGE1.switchView('table')">🏥 Table View</button>
+    <button class="vtab" id="vtab-smart" onclick="PAGE1.switchView('smart')">🔍 Smart Finder</button>
+  </div>
+
+  <!-- TABLE VIEW -->
+  <div id="view-table">
+    <!-- Totals row -->
+    <div class="totals-row">
+      <div class="totals-card totals-teal"><div class="totals-label">Total Hospitals</div><div class="totals-num" id="tot-total">—</div></div>
+      <div class="totals-card totals-green"><div class="totals-label">Active</div><div class="totals-num" id="tot-active">—</div></div>
+      <div class="totals-card totals-red"><div class="totals-label">Inactive</div><div class="totals-num" id="tot-inactive">—</div></div>
+      <div class="totals-card totals-amber"><div class="totals-label">On Hold</div><div class="totals-num" id="tot-hold">—</div></div>
+    </div>
+
+    <!-- Region cards -->
+    <div class="region-cards">
+      <div class="region-card"><div class="region-dot" style="background:#dbeafe;"></div><div class="region-name">North</div><div class="region-num" id="rn-North">—</div><div class="region-sub" id="rs-North">— total</div></div>
+      <div class="region-card"><div class="region-dot" style="background:#d1fae5;"></div><div class="region-name">South</div><div class="region-num" id="rn-South">—</div><div class="region-sub" id="rs-South">— total</div></div>
+      <div class="region-card"><div class="region-dot" style="background:#fed7aa;"></div><div class="region-name">West</div><div class="region-num" id="rn-West">—</div><div class="region-sub" id="rs-West">— total</div></div>
+      <div class="region-card"><div class="region-dot" style="background:#ede9fe;"></div><div class="region-name">East</div><div class="region-num" id="rn-East">—</div><div class="region-sub" id="rs-East">— total</div></div>
+      <div class="region-card"><div class="region-dot" style="background:#fef3c7;"></div><div class="region-name">Central</div><div class="region-num" id="rn-Central">—</div><div class="region-sub" id="rs-Central">— total</div></div>
+    </div>
+
+    <div class="filter-bar">
+      <span class="filter-bar-label">FILTER</span>
+      <div class="filter-group"><div class="filter-label">Region</div><select id="p1-region"><option value="">All Regions</option><option>North</option><option>South</option><option>East</option><option>West</option><option>Central</option></select></div>
+      <div class="filter-group"><div class="filter-label">City</div><select id="p1-city"></select></div>
+      <div class="filter-group"><div class="filter-label">Status</div><select id="p1-status"><option value="">All Status</option><option>Active</option><option>Inactive</option><option>On Hold</option></select></div>
+      <div class="filter-group"><div class="filter-label">MOP</div><select id="p1-mop"><option value="">All MOP</option><option>Cashless</option><option>Reimbursement</option><option>Cash</option></select></div>
+      <div class="filter-group"><div class="filter-label">Tier</div><select id="p1-tier"><option value="">All Tiers</option><option>Gold</option><option>Silver</option><option>Bronze</option><option>Underutilized</option></select></div>
+      <div class="filter-group"><div class="filter-label">Insurer</div><select id="p1-insurer"></select></div>
+      <div class="filter-group"><div class="filter-label">TPA</div><select id="p1-tpa"></select></div>
+      <div class="filter-group"><div class="filter-label">Search</div><input type="text" id="p1-search" placeholder="Search hospital…" style="width:175px;"></div>
+      <button class="btn btn-outline" id="p1-clear">↺ Reset</button>
+      
+    </div>
+
+    <div id="p1-recs" style="margin-bottom:12px;"></div>
+
+    <div class="table-card" id="p1-table-wrap">
+      <div class="table-header">
+        <div><div class="table-title">Hospital List <span style="font-size:12px;font-weight:400;color:var(--text3);" id="p1-count"></span></div><div class="table-sub">Click any row to view full details</div></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Hospital Name</th><th>City</th><th>Region</th><th>Status</th><th>MOP</th><th>Coverage</th><th>Ins Comments</th><th>City Comments</th></tr></thead>
+          <tbody id="p1-tbody"><tr><td colspan="8" class="empty-row">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="p1-pagination"></div>
+    </div>
+  </div>
+
+  <!-- SMART FINDER VIEW -->
+  <div id="view-smart" style="display:none;">
+    <div class="section-card">
+      <div style="font-size:17px;font-weight:800;margin-bottom:4px;">⭐ Smart Hospital Recommendations</div>
+      <div style="font-size:13px;color:var(--text3);margin-bottom:14px;">Get top hospitals based on historical ASP data — with case count and last case date</div>
+      <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:14px;margin-bottom:14px;">
+        <div style="font-size:10px;font-weight:700;color:var(--teal-dk);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Recommendation Filters</div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+          <div class="filter-group"><div class="filter-label">City</div><select id="sf-city" style="min-width:130px;"></select></div>
+          <div class="filter-group"><div class="filter-label">Insurer</div><select id="sf-insurer" style="min-width:170px;"></select></div>
+          <div class="filter-group"><div class="filter-label">TPA</div><select id="sf-tpa" style="min-width:160px;"></select></div>
+          <div class="filter-group"><div class="filter-label">Category</div><select id="sf-category" style="min-width:155px;"></select></div>
+          <div class="filter-group"><div class="filter-label">Procedure</div><select id="sf-procedure" style="min-width:175px;"></select></div>
+          <button class="btn btn-teal" id="sf-recommend">⭐ Get Recommendations</button>
+          <button class="btn btn-outline" id="sf-rec-clear">↺</button>
+        </div>
+      </div>
+      <div id="sf-rec-results"></div>
+    </div>
+
+    <div class="section-card">
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px;">📍 Nearest Hospital Finder</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Find nearest active hospitals by patient pincode</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:12px;">
+        <div class="filter-group"><div class="filter-label">Patient Pincode</div><input type="text" id="sf-pincode" placeholder="e.g. 500084" maxlength="6" style="width:150px;"></div>
+        <div class="filter-group"><div class="filter-label">Insurer (optional)</div><select id="sf-ins-dist" style="min-width:160px;"></select></div>
+        <div class="filter-group"><div class="filter-label">TPA (optional)</div><select id="sf-tpa-dist" style="min-width:150px;"></select></div>
+        <button class="btn btn-teal" id="sf-find">📍 Find Nearest</button>
+      </div>
+      <div id="sf-dist-results"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 2: ASP Analytics -->
+<div class="page-content" id="page2">
+  <div class="metrics-row">
+    <div class="metric-card metric-teal"><div class="metric-label">Total Cases</div><div class="metric-value" id="m-cases">—</div><div class="metric-sub">All discharged</div></div>
+    <div class="metric-card metric-green"><div class="metric-label">Avg ASP</div><div class="metric-value" id="m-asp">—</div><div class="metric-sub">Approval amount</div></div>
+    <div class="metric-card metric-amber"><div class="metric-label">Categories</div><div class="metric-value" id="m-cats">—</div><div class="metric-sub">Specialties</div></div>
+    <div class="metric-card metric-purple"><div class="metric-label">Insurers</div><div class="metric-value" id="m-ins">—</div><div class="metric-sub">Tracked</div></div>
+    <div class="metric-card metric-red"><div class="metric-label">City Buckets</div><div class="metric-value" id="m-cities">—</div><div class="metric-sub">Regions</div></div>
+  </div>
+
+  <div class="filter-bar">
+    <span class="filter-bar-label">FILTER</span>
+    <div class="filter-group"><div class="filter-label">Year</div><select id="p2-year"></select></div>
+    <div class="filter-group"><div class="filter-label">Status</div><select id="p2-status"><option value="">All Status</option><option>Active</option><option>Inactive</option><option>On Hold</option></select></div>
+    <div class="filter-group"><div class="filter-label">Quarter</div><select id="p2-quarter"><option value="">All Quarters</option><option value="1">Q1</option><option value="2">Q2</option><option value="3">Q3</option><option value="4">Q4</option></select></div>
+    <div class="filter-group"><div class="filter-label">Month</div><select id="p2-month"></select></div>
+    <div class="filter-group"><div class="filter-label">City</div><select id="p2-city"></select></div>
+    <div class="filter-group"><div class="filter-label">Category</div><select id="p2-category"></select></div>
+    <div class="filter-group"><div class="filter-label">Insurer</div><select id="p2-insurer" style="min-width:170px;"></select></div>
+    <div class="filter-group"><div class="filter-label">TPA</div><select id="p2-tpa" style="min-width:160px;"></select></div>
+    <div class="filter-group"><div class="filter-label">Hospital</div><select id="p2-hospital" style="min-width:190px;"></select></div>
+    <button class="btn btn-outline" id="p2-clear">↺ Reset</button>
+  </div>
+
+  <!-- Top rec + ASP trend -->
+  <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:14px;margin-bottom:14px;">
+    <div class="section-card" style="padding:0;overflow:hidden;"><div id="p2-top-rec" style="padding:18px;"></div></div>
+    <div class="section-card">
+      <div class="section-header">
+        <span class="section-title">ASP Trend</span>
+        <div style="display:flex;gap:5px;">
+          <button class="pill active" id="trend-monthly" onclick="PAGE2.setTrendMode('monthly')">Monthly</button>
+          <button class="pill" id="trend-quarterly" onclick="PAGE2.setTrendMode('quarterly')">Quarterly</button>
+          <button class="pill" id="trend-yearly" onclick="PAGE2.setTrendMode('yearly')">Yearly</button>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="chart-trend"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Tier accordion -->
+  <div class="section-card">
+    <div class="section-header">
+      <span class="section-title">Hospital Tiers</span>
+      <span class="section-sub">60% ASP · 20% Coverage · 20% Volume · Min 20 cases — updates with city filter</span>
+    </div>
+    <div id="p2-tiers"></div>
+  </div>
+
+  <!-- Top hospitals -->
+  <div class="section-card">
+    <div class="section-header"><div><div class="section-title">🏆 Top Hospitals by Volume &amp; ASP</div><div class="section-sub">Hospital + Category + Insurer combinations</div></div></div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:10px;">
+      <div class="filter-group"><div class="filter-label">City</div><select id="th-city"></select></div>
+      <div class="filter-group"><div class="filter-label">Category</div><select id="th-category"></select></div>
+      <div class="filter-group"><div class="filter-label">Insurer</div><select id="th-insurer" style="min-width:160px;"></select></div>
+      <div class="filter-group"><div class="filter-label">TPA</div><select id="th-tpa" style="min-width:150px;"></select></div>
+      <div class="filter-group"><div class="filter-label">Year</div><select id="th-year"></select></div>
+      <div class="filter-group"><div class="filter-label">Month</div><select id="th-month"></select></div>
+      <div class="filter-group"><div class="filter-label">Show Top</div><select id="th-top"><option value="5">Top 5</option><option value="10" selected>Top 10</option><option value="20">Top 20</option><option value="50">Top 50</option></select></div>
+      <button class="btn btn-outline" id="th-reset">↺</button>
+    </div>
+    <div id="th-summary" style="font-size:12px;color:var(--text3);margin-bottom:10px;"></div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;">
+      <button class="btn btn-teal" id="th-by-vol" onclick="PAGE2.setThMode('volume')">📊 By Case Volume</button>
+      <button class="btn btn-outline" id="th-by-asp" onclick="PAGE2.setThMode('asp')">💰 By Avg ASP</button>
+    </div>
+    <div id="th-results"></div>
+  </div>
+
+  <!-- Charts 2x2 -->
+  <div class="charts-grid">
+    <div class="section-card"><div class="section-header"><span class="section-title">City-wise Avg ASP</span></div><div class="chart-wrap"><canvas id="chart-city"></canvas></div></div>
+    <div class="section-card"><div class="section-header"><span class="section-title">Insurer-wise Avg ASP</span></div><div class="chart-wrap"><canvas id="chart-insurer"></canvas></div></div>
+  </div>
+
+  <!-- Comparator -->
+  <div class="section-card">
+    <div class="section-header"><div><div class="section-title">🏅 Hospital Comparator</div><div class="section-sub">Auto-picks top 3 hospitals — updates with filters</div></div></div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:14px;">
+      <div class="filter-group"><div class="filter-label">City</div><select id="comp-city" style="min-width:130px;"></select></div>
+      <div class="filter-group"><div class="filter-label">Insurer</div><select id="comp-insurer" style="min-width:160px;"></select></div>
+      <div class="filter-group"><div class="filter-label">TPA</div><select id="comp-tpa" style="min-width:150px;"></select></div>
+      <div class="filter-group"><div class="filter-label">Category</div><select id="comp-cat" style="min-width:150px;"></select></div>
+      <div class="filter-group"><div class="filter-label">Procedure</div><select id="comp-proc" style="min-width:165px;"></select></div>
+      <button class="btn btn-teal" id="comp-go">Compare Top 3 →</button>
+    </div>
+    <div id="comp-result"></div>
+  </div>
+</div>
+
+<!-- PAGE 3: Coverage Map -->
+<div class="page-content" id="page3">
+  <div class="section-card" style="padding:16px 18px;">
+    <div style="font-size:20px;font-weight:800;margin-bottom:3px;">Coverage Map</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Real-time hospital coverage — active hospitals, gaps &amp; empanelment filters</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+      <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;">CITY</span>
+      <div id="p3-city-pills" style="display:flex;gap:5px;flex-wrap:wrap;"></div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:12px;">
+      <div class="filter-group"><div class="filter-label">Status</div><select id="p3-status" style="min-width:130px;"></select></div>
+      <div class="filter-group"><div class="filter-label">Insurer</div><select id="p3-insurer" style="min-width:190px;"></select></div>
+      <div class="filter-group"><div class="filter-label">TPA</div><select id="p3-tpa" style="min-width:170px;"></select></div>
+      <button class="btn btn-outline" id="p3-clear">↺ Reset</button>
+    </div>
+    <div class="map-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#10b981;"></div>Active &amp; Empanelled</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f97316;"></div>Active, Not Empanelled</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ef4444;"></div>Inactive</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#9ca3af;border:2px dashed #9ca3af;width:12px;height:12px;"></div>Coverage Gap</div>
+      <span id="p3-marker-count" style="margin-left:auto;font-size:11px;color:var(--text3);font-family:var(--mono);"></span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;">
+      <div style="background:var(--green-lt);border-radius:var(--r-sm);padding:10px;text-align:center;"><div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">Active</div><div style="font-size:26px;font-weight:800;color:var(--green)" id="p3-active-count">—</div></div>
+      <div style="background:var(--red-lt);border-radius:var(--r-sm);padding:10px;text-align:center;"><div style="font-size:10px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">Inactive</div><div style="font-size:26px;font-weight:800;color:var(--red)" id="p3-inactive-count">—</div></div>
+      <div style="background:var(--surface2);border-radius:var(--r-sm);padding:10px;text-align:center;"><div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">Total</div><div style="font-size:26px;font-weight:800;color:var(--text)" id="p3-total-count">—</div></div>
+    </div>
+  </div>
+  <div class="section-card" style="padding:14px 18px;margin-bottom:14px;"><div id="p3-regional-gaps"></div></div>
+  <div style="border-radius:var(--r);overflow:hidden;margin-bottom:14px;box-shadow:var(--shadow);"><div id="map"></div></div>
+  <!-- Supply gap with its own filters -->
+  <div class="section-card">
+    <div class="section-header"><span class="section-title">Supply Gap Analysis</span><span class="section-sub">Worst coverage first</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:12px;">
+      <div class="filter-group"><div class="filter-label">City</div><select id="gap-city" style="min-width:130px;"></select></div>
+      <div class="filter-group"><div class="filter-label">Insurer</div><select id="gap-insurer" style="min-width:190px;"></select></div>
+      <div class="filter-group"><div class="filter-label">TPA</div><select id="gap-tpa" style="min-width:160px;"></select></div>
+      <button class="btn btn-outline" id="gap-reset">↺</button>
+    </div>
+    <div id="p3-gaps"></div>
+  </div>
+</div>
+
+</div><!-- main -->
+</div><!-- layout -->
+
+<!-- CENTER MODAL -->
+<div id="detail-overlay" onclick="if(event.target===this)window.closeModal()">
+  <div id="detail-panel">
+    <div class="dp-header">
+      <span class="dp-header-title">Hospital Details</span>
+      <button class="dp-close" id="detail-close" onclick="window.closeModal()">✕</button>
+    </div>
+    <div class="dp-body">
+      <div class="dp-left" id="detail-left"></div>
+      <div class="dp-right" id="detail-right"></div>
+    </div>
+  </div>
+</div>
+
+<div class="loading-overlay" id="loading-overlay"><div class="spinner"></div><span>Loading hospital data…</span></div>
+<div class="live-toast" id="live-toast" style="display:none;"><div class="live-toast-dot"></div><span id="live-toast-text"></span><span style="cursor:pointer;margin-left:6px;opacity:.5;" onclick="this.parentElement.style.display='none'">✕</span></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="pincodes.js?v=16"></script>
+<script src="config.js?v=16"></script>
+<script src="data.js?v=16"></script>
+<script src="page1.js?v=16"></script>
+<script src="page2.js?v=16"></script>
+<script src="page3.js?v=16"></script>
+<script>
+window.closeModal=function(){document.getElementById('detail-overlay').classList.remove('open');document.querySelectorAll('.hospital-row.selected').forEach(r=>r.classList.remove('selected'));};
+function showPage(id){
+  document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));
+  document.querySelectorAll('.page-content').forEach(p=>p.classList.remove('active'));
+  document.getElementById('nav-'+id)?.classList.add('active');
+  document.getElementById(id).classList.add('active');
+  const titles={page1:'Hospital Network',page2:'ASP Analytics',page3:'Coverage Map'};
+  document.getElementById('topbar-title').textContent=titles[id]||'';
+  // When switching TO page3, force map redraw
+  if(id==='page3'&&window.PAGE3){
+    setTimeout(()=>{
+      PAGE3.initMap();
+      if(PAGE3.map)PAGE3.map.invalidateSize();
+    },150);
+  }
+}
+function updateLiveInfo(){
+  document.getElementById('live-sub').textContent='Updated '+DATA.lastUpdated.toLocaleTimeString('en-IN');
+  document.getElementById('last-refreshed').textContent='Last sync: '+DATA.lastUpdated.toLocaleTimeString('en-IN');
+  const txt=`✓ Live — ${DATA.hospitals.length} hospitals • ${DATA.aspCases.length.toLocaleString('en-IN')} cases`;
+  document.getElementById('live-toast-text').textContent=txt;
+  document.getElementById('live-toast').style.display='flex';
+}
+(async()=>{
+  try{
+    await refreshData();
+    document.getElementById('loading-overlay').style.display='none';
+    updateLiveInfo();
+    onDataRefresh(updateLiveInfo);
+    PAGE1.init();PAGE2.init();PAGE3.init();
+    startAutoRefresh();
+    // Wire up refresh button
+    document.getElementById('refresh-btn')?.addEventListener('click', async () => {
+      const icon = document.getElementById('refresh-icon');
+      if(icon) icon.classList.add('spinning');
+      try {
+        await forceRefresh();
+        showToast('✓ Data refreshed');
+      } catch(e) {
+        console.error('Refresh failed:',e);
+        showToast('⚠ Refresh failed');
+      } finally {
+        if(icon) icon.classList.remove('spinning');
+      }
+    });
+    // Close mobile menu on nav item click
+    document.querySelectorAll('.sb-item').forEach(item => {
+      item.addEventListener('click', () => {
+        if(window.innerWidth <= 900) {
+          document.querySelector('.sidebar')?.classList.remove('mobile-open');
+        }
+      });
+    });
+  }catch(err){
+    document.getElementById('loading-overlay').innerHTML='<span style="color:red">⚠ Failed to load data. Refresh page.</span>';
+    console.error(err);
+  }
+})();
+
+function showToast(msg){
+  const t = document.getElementById('live-toast');
+  const txt = document.getElementById('live-toast-text');
+  if(t && txt){
+    txt.textContent = msg;
+    t.style.display = 'flex';
+    setTimeout(()=>{ t.style.display = 'none'; }, 3000);
+  }
+}
+</script>
+</body>
+</html>

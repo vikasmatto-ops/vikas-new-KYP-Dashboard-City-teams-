@@ -30,7 +30,7 @@ const PAGE2 = (() => {
   function renderAll(){
     const cases=getFiltered();
     renderMetrics(cases);
-    renderTopRec(cases);
+    renderCityCategoryChart(cases);
     renderTrend(cases);
     renderTiers(cases);  // reactive to city filter
     renderTopHospitals();
@@ -49,25 +49,21 @@ const PAGE2 = (() => {
     setText('m-cities',new Set(DATA.aspCases.map(c=>c.city).filter(Boolean)).size);
   }
 
-  function renderTopRec(cases){
-    const el=document.getElementById('p2-top-rec');if(!el)return;
+  function renderCityCategoryChart(cases){
+    destroyChart('cityCat');
+    const ctx=document.getElementById('chart-city-cat');if(!ctx)return;
     const valid=cases.filter(c=>c.approvalAmount!==null);
-    if(!valid.length){el.innerHTML=`<div style="color:var(--text3);font-size:13px;padding:20px;">No data for current filters.</div>`;return;}
-    const byHosp={};
-    valid.forEach(c=>{if(!byHosp[c.hospitalName])byHosp[c.hospitalName]={cases:[],city:c.city,cat:c.category,ins:c.insuranceName};byHosp[c.hospitalName].cases.push(c.approvalAmount);});
-    const best=Object.entries(byHosp).map(([name,d])=>({name,avg:Math.round(d.cases.reduce((s,v)=>s+v,0)/d.cases.length),count:d.cases.length,city:d.city,cat:d.cat,ins:d.ins})).sort((a,b)=>b.avg-a.avg)[0];
-    const hNet=DATA.hospitals.find(h=>h.hospitalName.toLowerCase().trim()===best.name.toLowerCase().trim());
-    el.innerHTML=`<div style="background:linear-gradient(135deg,#0284c7,#0ea5e9);border-radius:var(--r);padding:20px;color:#fff;min-height:200px;">
-      <div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;opacity:.75;margin-bottom:4px;">⭐ TOP RECOMMENDED HOSPITAL</div>
-      <div style="background:rgba(255,255,255,.15);display:inline-block;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:600;margin-bottom:10px;">${best.count} cases</div>
-      <div style="font-size:20px;font-weight:800;margin-bottom:4px;letter-spacing:-.3px;">${esc(best.name.split(',')[0])}</div>
-      <div style="font-size:11px;opacity:.8;margin-bottom:12px;">${cityLabel(best.city)}${best.cat?' • '+esc(best.cat):''}${best.ins?' • '+esc(best.ins):''}</div>
-      <div style="font-size:30px;font-weight:800;letter-spacing:-1px;margin-bottom:8px;">₹${fmtN(best.avg)}</div>
-      ${hNet?`<div style="display:flex;align-items:center;gap:6px;font-size:12px;"><span style="width:7px;height:7px;border-radius:50%;background:${hNet.activeStatus==='Active'?'#6ee7b7':'#fca5a5'};display:inline-block;"></span>${hNet.activeStatus}</div>`:''}
-    </div>`;
+    if(!valid.length){ctx.parentElement.innerHTML='<div style="color:var(--text3);font-size:13px;padding:20px;">No data for current filters.</div>';return;}
+    const byCity=groupBy(valid,c=>c.city);
+    const entries=Object.entries(byCity).map(([city,hc])=>({city:cityLabel(city),val:Math.round(avg(hc.map(c=>c.approvalAmount))),count:hc.length})).sort((a,b)=>b.val-a.val);
+    const cityColors=['#0ea5e9','#10b981','#8b5cf6','#f97316','#ec4899','#eab308','#06b6d4','#ef4444','#84cc16'];
+    charts.cityCat=new Chart(ctx,{type:'bar',data:{labels:entries.map(e=>e.city),datasets:[
+      {type:'bar',label:'Avg ASP',data:entries.map(e=>e.val),backgroundColor:entries.map((_,i)=>cityColors[i%cityColors.length]),borderRadius:4,maxBarThickness:44,order:2},
+      {type:'line',label:'Avg ASP Trend',data:entries.map(e=>e.val),borderColor:'#1e293b',borderWidth:2,pointRadius:4,pointBackgroundColor:'#1e293b',tension:.3,fill:false,order:1}
+    ]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:24,right:10}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{if(c.datasetIndex===0)return'Avg ASP: ₹'+fmtN(c.raw)+' • '+entries[c.dataIndex].count+' cases';return'';}}}},scales:{x:{ticks:{font:{size:10},maxRotation:35},grid:{display:false}},y:{ticks:{font:{size:10},callback:v=>'₹'+fmtN(v)},grid:{color:'#f0f0f0'},beginAtZero:false}},animation:{onComplete:function(){const chart=this;const c2=chart.ctx;c2.save();c2.font='bold 10px DM Sans,sans-serif';c2.textAlign='center';c2.textBaseline='bottom';const meta=chart.getDatasetMeta(0);meta.data.forEach((bar,j)=>{const v=chart.data.datasets[0].data[j];if(!v)return;c2.fillStyle='#0f172a';c2.fillText('₹'+fmtN(v),bar.x,bar.y-4);});c2.restore();}}}});
   }
 
-  // ASP Trend with data labels
+  // ASP Trend with 3 lines: Avg ASP, Total Approval, Cases
   function renderTrend(cases){
     const validCases=cases.filter(c=>c.approvalAmount!==null&&c.doaParsed);
     const grouped={};
@@ -80,11 +76,22 @@ const PAGE2 = (() => {
     });
     const sorted=Object.entries(grouped).sort(([a],[b])=>a.localeCompare(b));
     const labels=sorted.map(([k])=>{if(trendMode==='yearly'||trendMode==='quarterly')return k;const[yr,mo]=k.split('-');return['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+mo-1]+'\''+yr.slice(2);});
-    const data=sorted.map(([,v])=>Math.round(v.reduce((s,x)=>s+x,0)/v.length));
+    const avgData=sorted.map(([,v])=>Math.round(v.reduce((s,x)=>s+x,0)/v.length));
+    const totalApproval=sorted.map(([,v])=>Math.round(v.reduce((s,x)=>s+x,0)));
     const counts=sorted.map(([,v])=>v.length);
     destroyChart('trend');
     const ctx=document.getElementById('chart-trend');if(!ctx)return;
-    charts.trend=new Chart(ctx,{type:'line',data:{labels,datasets:[{label:'Avg ASP',data,borderColor:'#0ea5e9',backgroundColor:'rgba(14,165,233,.08)',borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#0ea5e9',tension:.3,fill:true}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:24}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`₹${fmtN(c.raw)}`,afterLabel:c=>`Cases: ${counts[c.dataIndex]}`}}},scales:{x:{ticks:{font:{size:10},maxRotation:35},grid:{display:false}},y:{ticks:{font:{size:10},callback:v=>'₹'+fmtN(v)},grid:{color:'#f0f0f0'}}},animation:{onComplete:function(){const chart=this;const ctx2=chart.ctx;ctx2.save();ctx2.font='bold 10px DM Sans,sans-serif';ctx2.fillStyle='#0284c7';ctx2.textAlign='center';chart.data.datasets.forEach((ds,i)=>{chart.getDatasetMeta(i).data.forEach((pt,j)=>{const v=ds.data[j];if(!v)return;ctx2.fillText('₹'+fmtN(v),pt.x,pt.y-8);});});ctx2.restore();}}}});
+    charts.trend=new Chart(ctx,{type:'line',data:{labels,datasets:[
+      {label:'Avg ASP',data:avgData,borderColor:'#0ea5e9',backgroundColor:'rgba(14,165,233,.08)',borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#0ea5e9',tension:.3,fill:true,yAxisID:'y'},
+      {label:'Total Approval',data:totalApproval,borderColor:'#8b5cf6',borderWidth:2,pointRadius:3,pointBackgroundColor:'#8b5cf6',borderDash:[8,4],tension:.3,fill:false,yAxisID:'y2'},
+      {label:'Cases',data:counts,borderColor:'#10b981',borderWidth:2,pointRadius:3,pointBackgroundColor:'#10b981',borderDash:[4,2],tension:.3,fill:false,yAxisID:'y1'}
+    ]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:24}},interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{if(c.datasetIndex===0)return'Avg ASP: ₹'+fmtN(c.raw);if(c.datasetIndex===1)return'Total Approval: ₹'+fmtN(c.raw);return'Cases: '+c.raw;}}}},scales:{x:{ticks:{font:{size:10},maxRotation:35},grid:{display:false}},y:{position:'left',ticks:{color:'#0ea5e9',font:{size:10},callback:v=>'₹'+fmtN(v)},grid:{color:'#f0f0f0'},title:{display:true,text:'Avg ASP',color:'#0ea5e9',font:{size:11}}},y1:{position:'right',ticks:{color:'#10b981',font:{size:10}},grid:{display:false},title:{display:true,text:'Cases',color:'#10b981',font:{size:11}}},y2:{position:'left',display:false}},animation:{onComplete:function(){const chart=this;const c2=chart.ctx;c2.save();c2.font='bold 9px DM Sans,sans-serif';c2.textAlign='center';const meta0=chart.getDatasetMeta(0);meta0.data.forEach((pt,j)=>{const v=chart.data.datasets[0].data[j];if(!v)return;c2.fillStyle='#0284c7';c2.fillText('₹'+fmtN(v),pt.x,pt.y-8);});const meta2=chart.getDatasetMeta(2);meta2.data.forEach((pt,j)=>{const v=chart.data.datasets[2].data[j];if(!v)return;c2.fillStyle='#059669';c2.fillText(v,pt.x,pt.y-8);});c2.restore();}}}});
+    // Render custom legend
+    const leg=document.getElementById('trend-legend');
+    if(leg)leg.innerHTML=`
+      <span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:3px;background:#0ea5e9;border-radius:2px;display:inline-block;"></span>Avg ASP</span>
+      <span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:0;border-top:2px dashed #8b5cf6;display:inline-block;"></span>Total Approval</span>
+      <span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:0;border-top:2px dashed #10b981;display:inline-block;"></span>Cases</span>`;
   }
 
   function setTrendMode(mode){

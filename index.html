@@ -6,7 +6,7 @@
 <title>HexaHealth Hospital Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=16">
+<link rel="stylesheet" href="styles.css?v=17">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 </head>
 <body>
@@ -163,9 +163,14 @@
     <button class="btn btn-outline" id="p2-clear">↺ Reset</button>
   </div>
 
-  <!-- Top rec + ASP trend -->
-  <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:14px;margin-bottom:14px;">
-    <div class="section-card" style="padding:0;overflow:hidden;"><div id="p2-top-rec" style="padding:18px;"></div></div>
+  <!-- City-wise Category Comparison + ASP Trend -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+    <div class="section-card">
+      <div class="section-header">
+        <span class="section-title">City-wise Category Comparison</span>
+      </div>
+      <div class="chart-wrap"><canvas id="chart-city-cat"></canvas></div>
+    </div>
     <div class="section-card">
       <div class="section-header">
         <span class="section-title">ASP Trend</span>
@@ -176,6 +181,7 @@
         </div>
       </div>
       <div class="chart-wrap"><canvas id="chart-trend"></canvas></div>
+      <div id="trend-legend" style="display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:var(--text2);margin-top:6px;padding:0 4px;"></div>
     </div>
   </div>
 
@@ -295,12 +301,12 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="pincodes.js?v=16"></script>
-<script src="config.js?v=16"></script>
-<script src="data.js?v=16"></script>
-<script src="page1.js?v=16"></script>
-<script src="page2.js?v=16"></script>
-<script src="page3.js?v=16"></script>
+<script src="pincodes.js?v=17"></script>
+<script src="config.js?v=17"></script>
+<script src="data.js?v=17"></script>
+<script src="page1.js?v=17"></script>
+<script src="page2.js?v=17"></script>
+<script src="page3.js?v=17"></script>
 <script>
 window.closeModal=function(){document.getElementById('detail-overlay').classList.remove('open');document.querySelectorAll('.hospital-row.selected').forEach(r=>r.classList.remove('selected'));};
 function showPage(id){
